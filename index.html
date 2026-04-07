@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QWIZ PARTY</title>
   
+  <!-- Tailwind CSS for Styling -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel to compile JSX in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans selection:bg-fuchsia-500/30 overflow-x-hidden">
   
@@ -19,35 +21,6 @@
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-
-    // --- FIREBASE INITIALIZATION ---
-    // PASTE YOUR FIREBASE CONFIG HERE:
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_ID",
-      appId: "YOUR_APP_ID"
-    };
-    
-    // Initialize Firebase if config is provided
-    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-      firebase.initializeApp(firebaseConfig);
-    }
-    const db = firebase.database();
-
-    // --- SOUND EFFECTS ---
-    const sounds = {
-      applause: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),
-      sigh: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3')
-    };
-
-    const playSound = (type) => {
-      sounds[type].currentTime = 0;
-      sounds[type].play().catch(e => console.log("Audio play blocked by browser"));
-    };
 
     // --- ICONS ---
     const Trophy = ({ size=24, className="" }) => (
@@ -204,26 +177,6 @@
       const [showResetConfirm, setShowResetConfirm] = useState(false);
       const [alertMessage, setAlertMessage] = useState(null);
 
-      // Load initial scores from Firebase
-      useEffect(() => {
-        if (firebaseConfig.apiKey === "YOUR_API_KEY") return;
-        
-        const scoresRef = db.ref('players');
-        scoresRef.on('value', (snapshot) => {
-          const data = snapshot.val();
-          if (data) {
-            setPlayers(data);
-          }
-        });
-        return () => scoresRef.off();
-      }, []);
-
-      const syncToFirebase = (newPlayers) => {
-        if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-          db.ref('players').set(newPlayers);
-        }
-      };
-
       const toggleFullScreen = () => {
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(err => {
@@ -333,8 +286,7 @@
         setQuestionStep('question');
       };
 
-      const closeQuestion = (wasAnswered = false) => {
-        if (!wasAnswered) playSound('sigh');
+      const closeQuestion = () => {
         if (activeQuestion) {
           setAsked(prevAsked => new Set(prevAsked).add(activeQuestion.id));
         }
@@ -343,23 +295,18 @@
       };
 
       const handleTeamAnswer = (playerId) => {
-        playSound('applause');
         if (activeQuestion) {
           updateScore(playerId, activeQuestion.points);
         }
-        closeQuestion(true);
+        closeQuestion();
       };
 
       const updatePlayerName = (id, newName) => {
-        const updated = players.map(p => p.id === id ? { ...p, name: newName } : p);
-        setPlayers(updated);
-        syncToFirebase(updated);
+        setPlayers(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
       };
 
       const updateScore = (id, amount) => {
-        const updated = players.map(p => p.id === id ? { ...p, score: p.score + amount } : p);
-        setPlayers(updated);
-        syncToFirebase(updated);
+        setPlayers(prev => prev.map(p => p.id === id ? { ...p, score: p.score + amount } : p));
       };
 
       const handleCustomPointUpdate = (id, isAdd) => {
@@ -372,9 +319,7 @@
 
       const confirmReset = () => {
         setAsked(new Set());
-        const resetPlayers = players.map(p => ({ ...p, score: 0 }));
-        setPlayers(resetPlayers);
-        syncToFirebase(resetPlayers);
+        setPlayers(prev => prev.map(p => ({ ...p, score: 0 })));
         setCurrentRound(1);
         setActiveTab('board');
         setShowResetConfirm(false);
@@ -592,7 +537,7 @@
             <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex flex-col">
               <div className="flex justify-between items-center p-6 border-b border-slate-800 bg-slate-900/50">
                  <div className="text-xl font-black text-slate-950 bg-cyan-400 px-5 py-2 rounded-lg">{activeQuestion.points} POINTS</div>
-                 <button onClick={() => closeQuestion()} className="bg-slate-800 text-slate-300 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"><XIcon size={24} /></button>
+                 <button onClick={closeQuestion} className="bg-slate-800 text-slate-300 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"><XIcon size={24} /></button>
               </div>
 
               <div className="flex-grow flex flex-col items-center justify-start p-12 overflow-y-auto w-full relative z-10">
@@ -639,7 +584,7 @@
                           </button>
                         );
                       })}
-                      <button onClick={() => closeQuestion()} className="col-span-2 px-8 py-4 bg-slate-950 text-slate-500 border-2 border-slate-800 hover:bg-slate-800 hover:text-slate-300 rounded-xl font-bold transition-all text-lg">Nobody got it</button>
+                      <button onClick={closeQuestion} className="col-span-2 px-8 py-4 bg-slate-950 text-slate-500 border-2 border-slate-800 hover:bg-slate-800 hover:text-slate-300 rounded-xl font-bold transition-all text-lg">Nobody got it</button>
                     </div>
                   </div>
                 )}
